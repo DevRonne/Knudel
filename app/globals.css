@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 23, 23, 23;
+  --background-rgb: 255, 255, 255;
+  --navy-dark: #0a1220;
+  --navy: #0f1a2b;
+  --water-cyan: #00b4d8;
+  --flame-orange: #ff6600;
+  --flame-yellow: #ffcc00;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom container */
+.container-custom {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Diagonal clip paths */
+.clip-diagonal-top {
+  clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+}
+
+.clip-diagonal-bottom {
+  clip-path: polygon(0 15%, 100% 0, 100% 100%, 0 100%);
+}
+
+.clip-diagonal-both {
+  clip-path: polygon(0 10%, 100% 0, 100% 90%, 0 100%);
+}
+
+/* Water splash animation */
+@keyframes splash {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-10px) scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+.animate-splash {
+  animation: splash 4s ease-in-out infinite;
+}
+
+/* Gradient text for headings */
+.gradient-text-water {
+  @apply text-transparent bg-clip-text bg-gradient-to-r from-water-400 to-water-600;
+}
+
+.gradient-text-flame {
+  @apply text-transparent bg-clip-text bg-gradient-to-r from-accent-400 to-flame-400;
+}
+
+/* Glass effect */
+.glass {
+  @apply backdrop-blur-md bg-white/10;
+}
+
+/* Navy section background */
+.bg-navy-section {
+  background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 50%, var(--navy-dark) 100%);
+}
+
+/* Water glow effect */
+.glow-water {
+  box-shadow: 0 0 30px rgba(0, 180, 216, 0.3);
+}
+
+.glow-flame {
+  box-shadow: 0 0 30px rgba(255, 102, 0, 0.3);
+}
+
+/* Hover lift effect */
+.hover-lift {
+  @apply transition-all duration-300 hover:-translate-y-2 hover:shadow-xl;
+}
