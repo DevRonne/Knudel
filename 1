@@ -1,6 +1,6 @@
 Registry 'NPS_Installation_completed' {
 	Ensure = "Present"
-	Key = "$($ConfigData.AllNodes.GMNRegistryPath)\$($ConfigData.AllNodes.CcService)" 
+	Key = "$($ConfigData.AllNodes.GMNRegistryPath)\$($ConfigData.AllNodes.CcService)"
 	ValueType = "String"
 	ValueName = "NPS_Installation_completed"
     ValueData = "Executed"
@@ -14,13 +14,13 @@ Import-ServicesADJSON -JsonPath $ConfigData.AllNodes.PathToADJson -Verbose
 $TestImport = Get-ServicesADJSONVariable
 if ($null -eq $TestImport) {
 throw "Failed to import the AD JSON. Please ensure the file is available"
-} 
+}
 
 #Calculating Variables
 $AdminNPSGroup = 'RADIUS_Admin'
 $AdminGroup  = (Get-ServicesADJSONVariable -TierNumber $ConfigData.AllNodes.Relation_TierLevel `
-					 -TierKey "*$($ConfigData.AllNodes.TS_Nr)*" -Path 'Groups' -Name "*$($AdminNPSGroup)" -As Name -Verbose) 
-Write-Verbose "Users: $($AdminGroup)" -Verbose 
+					 -TierKey "*$($ConfigData.AllNodes.TS_Nr)*" -Path 'Groups' -Name "*$($AdminNPSGroup)" -As Name -Verbose)
+Write-Verbose "Users: $($AdminGroup)" -Verbose
 
 File 'RadiusFolder'{
             Type = 'Directory'
@@ -28,12 +28,12 @@ File 'RadiusFolder'{
             Ensure = "Present"
 }
 $Depends = @()
-$Depends += '[Registry]NPS_Installation_started' 
+$Depends += '[Registry]NPS_Installation_started'
 $Depends += "[File]RadiusFolder"
 
 $sourcePath      = "\\$($ConfigData.AllNodes.PullServerName)\$($ConfigData.AllNodes.CMDDynamicShare)\$($ConfigData.AllNodes.CcService)\NPS_Export.xml"
 $destinationPath = 'D:\Resources\NPS\NPS_Export.xml'
-$guardKeyPath    = "$($ConfigData.AllNodes.GMNRegistryPath)\$($ConfigData.AllNodes.CcService)" 
+$guardKeyPath    = "$($ConfigData.AllNodes.GMNRegistryPath)\$($ConfigData.AllNodes.CcService)"
 
 
 Script Copy_NPS_Export {
@@ -86,7 +86,7 @@ Script Copy_NPS_Export {
         }
 
         Write-Verbose -Message "Copying '$using:sourcePath' to '$using:destinationPath'."
-        Copy-Item -Path $using:sourcePath -Destination $using:destinationPath -Force
+        Copy-Item -Path $using:sourcePath -Destination $using:destinationPath -Force -ErrorAction Stop
         Write-Verbose -Message 'File copy completed.'
 
         # Stamp the guard value so the next TestScript pass reports the copy as done.
@@ -102,7 +102,6 @@ Script Copy_NPS_Export {
 
     }
     DependsOn = $Depends
-    PsDscRunAsCredential = $DomainCredential
 }
 $Depends += "[Script]Copy_NPS_Export"
 
@@ -161,7 +160,7 @@ Script Copy_NPS_Data {
         }
 
         Write-Verbose -Message "Copying '$using:sourcePathData' to '$using:destinationPathData'."
-        Copy-Item -Path $using:sourcePathData -Destination $using:destinationPathData -Force
+        Copy-Item -Path $using:sourcePathData -Destination $using:destinationPathData -Force -ErrorAction Stop
         Write-Verbose -Message 'File copy completed.'
 
         # Stamp the guard value so the next TestScript pass reports the copy as done.
@@ -176,7 +175,6 @@ Script Copy_NPS_Data {
         Write-Verbose -Message 'File copy completed and guard registry key created.'
     }
     DependsOn = $Depends
-    PsDscRunAsCredential = $DomainCredential
 }
 $Depends += "[Script]Copy_NPS_Data"
 
@@ -187,10 +185,8 @@ Script 'ConfigureXML'{
 
     GetScript = {
         $path = 'D:\Resources\NPS\NPS_Export.xml'
-        $xml = [xml](Get-Content -Path $path)	
-        return @{ Result = ($xml) }
-
-	    }
+        return @{ Result = "NPS_Export.xml present: $(Test-Path -LiteralPath $path)" }
+    }
 	TestScript = {
         $guardKey   = $using:guardKeyPath
         $guardValue = 'NPSXmlConfigured'
@@ -216,18 +212,20 @@ Script 'ConfigureXML'{
 
         Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - checking whether the XML still contains the builtin Users SID."
         $path = 'D:\Resources\NPS\NPS_Export.xml'
-        return [bool]((Get-Content -Path $path -Raw) -notmatch 'S-1-5-32-545')            		
+        if (-not (Test-Path -LiteralPath $path)) { return $false }
+        return [bool]((Get-Content -Path $path -Raw -ErrorAction Stop) -notmatch 'S-1-5-32-545')
     }
 	SetScript = {
         $user = $using:AdminGroup
         Write-Verbose "User found in setscript: $($user)" -Verbose
         $path = 'D:\Resources\NPS\NPS_Export.xml'
         $sid = (New-Object System.Security.Principal.NTAccount("$($user)")).Translate([System.Security.Principal.SecurityIdentifier]).Value
-        
-        $roh = (Get-Content -Path $path -Raw) -replace 'S-1-5-32-545', $sid
+
+        $roh = (Get-Content -Path $path -Raw -ErrorAction Stop) -replace 'S-1-5-32-545', $sid
+        if ($roh -notmatch [regex]::Escape($sid)) { throw "XML contains neither the placeholder nor the expected SID $sid - template from a foreign domain?" }
 
         $item = Get-Item $path
-        if ($item.IsReadOnly) { $item.IsReadOnly = $false }                                                      
+        if ($item.IsReadOnly) { $item.IsReadOnly = $false }
         [System.IO.File]::WriteAllText($path, $roh)
 
         # Stamp the guard value so the next TestScript pass skips the SID replacement
@@ -236,7 +234,7 @@ Script 'ConfigureXML'{
             New-Item -Path $using:guardKeyPath -Force | Out-Null
         }
         $date = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-        Set-ItemProperty -LiteralPath $using:guardKeyPath -Name 'NPSXmlConfigured' -Value $date -Force -ErrorAction Stop        
+        Set-ItemProperty -LiteralPath $using:guardKeyPath -Name 'NPSXmlConfigured' -Value $date -Force -ErrorAction Stop
     }
     DependsOn = $Depends
 }
@@ -302,6 +300,8 @@ Script 'ConfigNPS'{
         }
         $date = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
         Set-ItemProperty -LiteralPath $regPath -Name 'NPSConfigImported' -Value $date -Force -ErrorAction Stop
+        # Import-NpsConfiguration replaced remote group, clients and filelog -> those resources must run again
+        Remove-ItemProperty -LiteralPath $regPath -Name 'NPSRadiusGroupConfigured','NPSClientsImported','NPSAccountLogConfigured' -Force -ErrorAction SilentlyContinue
 
 	}
     DependsOn = $Depends
@@ -349,11 +349,8 @@ Script 'ConfigNPS'{
             throw "Cannot read guard value '$guardValue' under '$guardKey': $($guardError[0].Exception.Message)"
         }
 
-        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - checking the RadiusGroup via netsh."
-        if([string]::IsNullOrWhiteSpace($using:AllNodes.NPSSecondNodeIP)) { return $false }
-        $groupOutput = netsh nps show remoteserver remoteservergroup = "RadiusGroup" | Out-String
-        Write-Verbose "retrieved following values: $groupOutput" -Verbose
-        return [bool]($groupOutput -match [regex]::Escape($using:AllNodes.NPSSecondNodeIP))
+        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - RadiusGroup (re)configuration is required."
+        return $false
     }
     SetScript = {
         $partnerIp = $using:ConfigData.AllNodes.NPSSecondNodeIP
@@ -467,11 +464,12 @@ Script ImportClients{
     SetScript = {
         $pathtoCSV = "D:\Resources\NPS\data.csv"
         $regPath = $using:guardKeyPath
-        $csvImport = Import-Csv -Path $pathtoCSV -Delimiter ';' 
+        $csvImport = Import-Csv -Path $pathtoCSV -Delimiter ';' -ErrorAction Stop
         $actualClients = Get-NpsRadiusClient |Select-Object -ExpandProperty 'Name'
         $csvRows = $csvImport
-        $current = @($actualClients) # what exists now
-        $desired = @($csvRows) # what the CSV says should exist
+        $current = @($actualClients | Where-Object { $_ }) # what exists now (no phantom $null entry)
+        $desired = @($csvRows | Where-Object { $_ })       # what the CSV says should exist
+        if ($desired.Count -eq 0) { throw 'data.csv has no rows - sync aborted (would remove every client)' }
         $comparison = Compare-Object -ReferenceObject $current -DifferenceObject @($desired.Name)
         # Names that exist now but aren't in the CSV -> remove (a name is all you need here)
         $namesToRemove = @($comparison | Where-Object SideIndicator -eq '<=' | Select-Object -ExpandProperty InputObject)
@@ -482,14 +480,14 @@ Script ImportClients{
 
 
         foreach ( $item in $namesToRemove ){
-            Remove-NpsRadiusClient -Name $item -Verbose
+            Remove-NpsRadiusClient -Name $item -Verbose -ErrorAction Stop
         }
 
         foreach ( $item in $rowsToAdd ){
             Write-Verbose "ClientName: $($item.Name)" -Verbose
             Write-Verbose "Input: $($item.IP)" -Verbose
-            New-NpsRadiusClient -Name $item.Name -Address $item.IP -SharedSecret $using:ConfigData.AllNodes.NPSSharedSecret -Verbose
-        } 
+            New-NpsRadiusClient -Name $item.Name -Address $item.IP -SharedSecret $using:ConfigData.AllNodes.NPSSharedSecret -Verbose -ErrorAction Stop
+        }
         #RegKey stores the hash of the ynced CSV - a changed CSV triggers a re-sync
         if (-not (Test-Path -LiteralPath $regPath)) {
             New-Item $regPath -Force | Out-Null
@@ -498,14 +496,14 @@ Script ImportClients{
         Set-ItemProperty -LiteralPath $regPath -Name 'NPSClientsImported' -Value $date -Force -ErrorAction Stop
         Write-Verbose "NPS clients synced, hsh stored in RegKey NPSClientsImported." -Verbose
 
-    }  
-   
+    }
+
     DependsOn = $Depends
 }
 $Depends += "[Script]ImportClients"
 
  Script 'AccountLog' {
-    GetScript = { 
+    GetScript = {
         if (-not (Test-Path -Path $using:guardKeyPath))
         {
             return @{ Result = 'RegistryKeyAbsent' }
@@ -542,9 +540,8 @@ $Depends += "[Script]ImportClients"
             throw "Cannot read guard value '$guardValue' under '$guardKey': $($guardError[0].Exception.Message)"
         }
 
-        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - checking the NPS filelog directory via netsh."
-        $filelogOutput = netsh nps show filelog | Out-String
-        return [bool]($filelogOutput -match [regex]::Escape('D:\RADIUS_Log'))
+        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - filelog configuration is required."
+        return $false
     }
     SetScript = {
         $setResult = netsh nps set filelog directory="D:\RADIUS_Log"
@@ -565,7 +562,7 @@ $Depends += "[Script]ImportClients"
 
 Registry 'NPS_Installation_started' {
 	Ensure = "Present"
-	Key = "$($ConfigData.AllNodes.GMNRegistryPath)\$($ConfigData.AllNodes.CcService)" 
+	Key = "$($ConfigData.AllNodes.GMNRegistryPath)\$($ConfigData.AllNodes.CcService)"
 	ValueType = "String"
 	ValueName = "NPS_Installation_started"
     ValueData = "Executed"
