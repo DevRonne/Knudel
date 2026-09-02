@@ -1,0 +1,572 @@
+Registry 'NPS_Installation_completed' {
+	Ensure = "Present"
+	Key = "$($ConfigData.AllNodes.GMNRegistryPath)\$($ConfigData.AllNodes.CcService)" 
+	ValueType = "String"
+	ValueName = "NPS_Installation_completed"
+    ValueData = "Executed"
+    DependsOn = '[Script]AccountLog'
+}
+
+<#
+AD Json Module management
+#>
+Import-ServicesADJSON -JsonPath $ConfigData.AllNodes.PathToADJson -Verbose
+$TestImport = Get-ServicesADJSONVariable
+if ($null -eq $TestImport) {
+throw "Failed to import the AD JSON. Please ensure the file is available"
+} 
+
+#Calculating Variables
+$AdminNPSGroup = 'RADIUS_Admin'
+$AdminGroup  = (Get-ServicesADJSONVariable -TierNumber $ConfigData.AllNodes.Relation_TierLevel `
+					 -TierKey "*$($ConfigData.AllNodes.TS_Nr)*" -Path 'Groups' -Name "*$($AdminNPSGroup)" -As Name -Verbose) 
+Write-Verbose "Users: $($AdminGroup)" -Verbose 
+
+File 'RadiusFolder'{
+            Type = 'Directory'
+            DestinationPath = 'D:\RADIUS_Log'
+            Ensure = "Present"
+}
+$Depends = @()
+$Depends += '[Registry]NPS_Installation_started' 
+$Depends += "[File]RadiusFolder"
+
+$sourcePath      = "\\$($ConfigData.AllNodes.PullServerName)\$($ConfigData.AllNodes.CMDDynamicShare)\$($ConfigData.AllNodes.CcService)\NPS_Export.xml"
+$destinationPath = 'D:\Resources\NPS\NPS_Export.xml'
+$guardKeyPath    = "$($ConfigData.AllNodes.GMNRegistryPath)\$($ConfigData.AllNodes.CcService)" 
+
+
+Script Copy_NPS_Export {
+    GetScript = {
+        if (-not (Test-Path -Path $using:guardKeyPath))
+        {
+            return @{ Result = 'RegistryKeyAbsent - copy pending' }
+        }
+
+        $copiedOnProperty = Get-ItemProperty -Path $using:guardKeyPath -Name 'Copy_NPS_Export' -ErrorAction SilentlyContinue
+        if ($null -eq $copiedOnProperty)
+        {
+            return @{ Result = 'RegistryKeyPresent - Copy_NPS_Export value missing, copy pending' }
+        }
+
+        @{ Result = "RegistryKeyPresent - Copy_NPS_Export '$($copiedOnProperty.Copy_NPS_Export)'" }
+    }
+    TestScript = {
+        $guardKey   = $using:guardKeyPath
+        $guardValue = 'Copy_NPS_Export'
+        if ([string]::IsNullOrWhiteSpace($guardKey))
+        {
+            throw "Guard registry key path is empty (ConfigData.AllNodes.GMNRegistryPath missing) - cannot evaluate '$guardValue'."
+        }
+
+        # Only existence of the guard value matters - its data is historical and ignored
+        $guard = Get-ItemProperty -LiteralPath $guardKey -Name $guardValue -ErrorAction SilentlyContinue -ErrorVariable guardError
+        if ($null -ne $guard)
+        {
+            Write-Verbose -Message "Guard value '$guardValue' exists under '$guardKey' - copy to '$using:destinationPath' is skipped."
+            return $true
+        }
+
+        # Only 'key missing' (ObjectNotFound) and 'value missing' (InvalidArgument) prove the guard is absent;
+        # any other error (e.g. access denied) fails the resource instead of triggering the SetScript
+        if ($guardError.Count -gt 0 -and $guardError[0].CategoryInfo.Category.ToString() -notin @('ObjectNotFound', 'InvalidArgument'))
+        {
+            throw "Cannot read guard value '$guardValue' under '$guardKey': $($guardError[0].Exception.Message)"
+        }
+
+        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - copy to '$using:destinationPath' is required."
+        return $false
+    }
+    SetScript = {
+        $destinationFolder = Split-Path -Path $using:destinationPath -Parent
+        Write-Debug -Message "Ensuring destination folder '$destinationFolder' exists."
+        if (-not (Test-Path -Path $destinationFolder))
+        {
+            New-Item -Path $destinationFolder -ItemType Directory -Force | Out-Null
+        }
+
+        Write-Verbose -Message "Copying '$using:sourcePath' to '$using:destinationPath'."
+        Copy-Item -Path $using:sourcePath -Destination $using:destinationPath -Force
+        Write-Verbose -Message 'File copy completed.'
+
+        # Stamp the guard value so the next TestScript pass reports the copy as done.
+        # New-Item -Force on an existing key wipes every other guard value, so create the key only when it is missing
+        if (-not (Test-Path -LiteralPath $using:guardKeyPath))
+        {
+            Write-Verbose -Message "Creating guard registry key '$using:guardKeyPath'."
+            New-Item -Path $using:guardKeyPath -Force | Out-Null
+        }
+        $copiedOn = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        Set-ItemProperty -LiteralPath $using:guardKeyPath -Name 'Copy_NPS_Export' -Value $copiedOn -Force -ErrorAction Stop
+        Write-Verbose -Message 'File copy completed and guard registry key created.'
+
+    }
+    DependsOn = $Depends
+    PsDscRunAsCredential = $DomainCredential
+}
+$Depends += "[Script]Copy_NPS_Export"
+
+
+$sourcePathData      = "\\$($ConfigData.AllNodes.PullServerName)\$($ConfigData.AllNodes.CMDDynamicShare)\$($ConfigData.AllNodes.CcService)\data.csv"
+$destinationPathData = 'D:\Resources\NPS\data.csv'
+
+
+Script Copy_NPS_Data {
+    GetScript = {
+        if (-not (Test-Path -Path $using:guardKeyPath))
+        {
+            return @{ Result = 'RegistryKeyAbsent - copy pending' }
+        }
+
+        $copiedOnProperty = Get-ItemProperty -Path $using:guardKeyPath -Name 'Copy_NPS_Data' -ErrorAction SilentlyContinue
+        if ($null -eq $copiedOnProperty)
+        {
+            return @{ Result = 'RegistryKeyPresent - Copy_NPS_Data value missing, copy pending' }
+        }
+
+        @{ Result = "RegistryKeyPresent - Copy_NPS_Data '$($copiedOnProperty.Copy_NPS_Data)'" }
+    }
+    TestScript = {
+        $guardKey   = $using:guardKeyPath
+        $guardValue = 'Copy_NPS_Data'
+        if ([string]::IsNullOrWhiteSpace($guardKey))
+        {
+            throw "Guard registry key path is empty (ConfigData.AllNodes.GMNRegistryPath missing) - cannot evaluate '$guardValue'."
+        }
+
+        # Only existence of the guard value matters - its data is historical and ignored
+        $guard = Get-ItemProperty -LiteralPath $guardKey -Name $guardValue -ErrorAction SilentlyContinue -ErrorVariable guardError
+        if ($null -ne $guard)
+        {
+            Write-Verbose -Message "Guard value '$guardValue' exists under '$guardKey' - copy to '$using:destinationPathData' is skipped."
+            return $true
+        }
+
+        # Only 'key missing' (ObjectNotFound) and 'value missing' (InvalidArgument) prove the guard is absent;
+        # any other error (e.g. access denied) fails the resource instead of triggering the SetScript
+        if ($guardError.Count -gt 0 -and $guardError[0].CategoryInfo.Category.ToString() -notin @('ObjectNotFound', 'InvalidArgument'))
+        {
+            throw "Cannot read guard value '$guardValue' under '$guardKey': $($guardError[0].Exception.Message)"
+        }
+
+        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - copy to '$using:destinationPathData' is required."
+        return $false
+    }
+    SetScript = {
+        $destinationFolder = Split-Path -Path $using:destinationPathData -Parent
+        Write-Debug -Message "Ensuring destination folder '$destinationFolder' exists."
+        if (-not (Test-Path -Path $destinationFolder))
+        {
+            New-Item -Path $destinationFolder -ItemType Directory -Force | Out-Null
+        }
+
+        Write-Verbose -Message "Copying '$using:sourcePathData' to '$using:destinationPathData'."
+        Copy-Item -Path $using:sourcePathData -Destination $using:destinationPathData -Force
+        Write-Verbose -Message 'File copy completed.'
+
+        # Stamp the guard value so the next TestScript pass reports the copy as done.
+        # New-Item -Force on an existing key wipes every other guard value, so create the key only when it is missing
+        if (-not (Test-Path -LiteralPath $using:guardKeyPath))
+        {
+            Write-Verbose -Message "Creating guard registry key '$using:guardKeyPath'."
+            New-Item -Path $using:guardKeyPath -Force | Out-Null
+        }
+        $copiedOn = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        Set-ItemProperty -LiteralPath $using:guardKeyPath -Name 'Copy_NPS_Data' -Value $copiedOn -Force -ErrorAction Stop
+        Write-Verbose -Message 'File copy completed and guard registry key created.'
+    }
+    DependsOn = $Depends
+    PsDscRunAsCredential = $DomainCredential
+}
+$Depends += "[Script]Copy_NPS_Data"
+
+
+
+
+Script 'ConfigureXML'{
+
+    GetScript = {
+        $path = 'D:\Resources\NPS\NPS_Export.xml'
+        $xml = [xml](Get-Content -Path $path)	
+        return @{ Result = ($xml) }
+
+	    }
+	TestScript = {
+        $guardKey   = $using:guardKeyPath
+        $guardValue = 'NPSXmlConfigured'
+        if ([string]::IsNullOrWhiteSpace($guardKey))
+        {
+            throw "Guard registry key path is empty (ConfigData.AllNodes.GMNRegistryPath missing) - cannot evaluate '$guardValue'."
+        }
+
+        # Only existence of the guard value matters - its data is historical and ignored
+        $guard = Get-ItemProperty -LiteralPath $guardKey -Name $guardValue -ErrorAction SilentlyContinue -ErrorVariable guardError
+        if ($null -ne $guard)
+        {
+            Write-Verbose -Message "Guard value '$guardValue' exists under '$guardKey' - SID replacement is skipped."
+            return $true
+        }
+
+        # Only 'key missing' (ObjectNotFound) and 'value missing' (InvalidArgument) prove the guard is absent;
+        # any other error (e.g. access denied) fails the resource instead of triggering the SetScript
+        if ($guardError.Count -gt 0 -and $guardError[0].CategoryInfo.Category.ToString() -notin @('ObjectNotFound', 'InvalidArgument'))
+        {
+            throw "Cannot read guard value '$guardValue' under '$guardKey': $($guardError[0].Exception.Message)"
+        }
+
+        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - checking whether the XML still contains the builtin Users SID."
+        $path = 'D:\Resources\NPS\NPS_Export.xml'
+        return [bool]((Get-Content -Path $path -Raw) -notmatch 'S-1-5-32-545')            		
+    }
+	SetScript = {
+        $user = $using:AdminGroup
+        Write-Verbose "User found in setscript: $($user)" -Verbose
+        $path = 'D:\Resources\NPS\NPS_Export.xml'
+        $sid = (New-Object System.Security.Principal.NTAccount("$($user)")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+        
+        $roh = (Get-Content -Path $path -Raw) -replace 'S-1-5-32-545', $sid
+
+        $item = Get-Item $path
+        if ($item.IsReadOnly) { $item.IsReadOnly = $false }                                                      
+        [System.IO.File]::WriteAllText($path, $roh)
+
+        # Stamp the guard value so the next TestScript pass skips the SID replacement
+        if (-not (Test-Path -LiteralPath $using:guardKeyPath))
+        {
+            New-Item -Path $using:guardKeyPath -Force | Out-Null
+        }
+        $date = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        Set-ItemProperty -LiteralPath $using:guardKeyPath -Name 'NPSXmlConfigured' -Value $date -Force -ErrorAction Stop        
+    }
+    DependsOn = $Depends
+}
+    $Depends += "[Script]ConfigureXML"
+
+
+Script 'ConfigNPS'{
+	GetScript = {
+        if (-not (Test-Path -Path $using:guardKeyPath))
+        {
+            return @{ Result = 'RegistryKeyAbsent' }
+        }
+
+        $copiedOnProperty = Get-ItemProperty -Path $using:guardKeyPath -Name 'NPSConfigImported' -ErrorAction SilentlyContinue
+        if ($null -eq $copiedOnProperty)
+        {
+            return @{ Result = 'RegistryKeyPresent - NPSConfigImported value missing' }
+        }
+
+        @{ Result = "RegistryKeyPresent - NPSConfigImported '$($copiedOnProperty.NPSConfigImported)'" }
+    }
+    TestScript = {
+        $guardKey   = $using:guardKeyPath
+        $guardValue = 'NPSConfigImported'
+        if ([string]::IsNullOrWhiteSpace($guardKey))
+        {
+            throw "Guard registry key path is empty (ConfigData.AllNodes.GMNRegistryPath missing) - cannot evaluate '$guardValue'."
+        }
+
+        # Only existence of the guard value matters - its data is historical and ignored
+        $guard = Get-ItemProperty -LiteralPath $guardKey -Name $guardValue -ErrorAction SilentlyContinue -ErrorVariable guardError
+        if ($null -ne $guard)
+        {
+            Write-Verbose -Message "Guard value '$guardValue' exists under '$guardKey' - NPS configuration import is skipped."
+            return $true
+        }
+
+        # Only 'key missing' (ObjectNotFound) and 'value missing' (InvalidArgument) prove the guard is absent;
+        # any other error (e.g. access denied) fails the resource instead of triggering the SetScript
+        if ($guardError.Count -gt 0 -and $guardError[0].CategoryInfo.Category.ToString() -notin @('ObjectNotFound', 'InvalidArgument'))
+        {
+            throw "Cannot read guard value '$guardValue' under '$guardKey': $($guardError[0].Exception.Message)"
+        }
+
+        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - NPS configuration import is required."
+        return $false
+    }
+	SetScript = {
+        $path = 'D:\Resources\NPS\NPS_Export.xml'
+        $regPath = $using:guardKeyPath
+        if (-not (Test-Path $path)) { throw 'NPS_Export.xml missing - import aborted.' }
+        if((Get-Content -Path $path -Raw) -match 'S-1-5-32-545') { throw 'SID not changed - import aborted' }
+
+        Write-Verbose "Import XML" -Verbose
+		# Import runs only once
+		Import-NpsConfiguration -Path $path -ErrorAction Stop
+
+        Write-Verbose "Import successful" -Verbose
+
+		Write-Verbose 'NPS-configuration imported, RegKey NPSConfigImported=Executed set.' -Verbose
+        if(-not (Test-Path -LiteralPath $regPath)) {
+            New-Item $regPath -Force | Out-Null
+        }
+        $date = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        Set-ItemProperty -LiteralPath $regPath -Name 'NPSConfigImported' -Value $date -Force -ErrorAction Stop
+
+	}
+    DependsOn = $Depends
+ }
+    $Depends += "[Script]ConfigNPS"
+
+ Write-Verbose "AllNodes: $($ConfigData.AllNodes.NPSSecondNodeIP)" -Verbose
+ Write-Verbose "AllNodes: $($ConfigData.AllNodes.NPSSharedSecret)" -Verbose
+
+ Script 'RaduisServerGroup' {
+    GetScript = {
+        if (-not (Test-Path -Path $using:guardKeyPath))
+        {
+            return @{ Result = 'RegistryKeyAbsent' }
+        }
+
+        $configuredProperty = Get-ItemProperty -Path $using:guardKeyPath -Name 'NPSRadiusGroupConfigured' -ErrorAction SilentlyContinue
+        if ($null -eq $configuredProperty)
+        {
+            return @{ Result = 'RegistryKeyPresent - NPSRadiusGroupConfigured value missing' }
+        }
+
+        @{ Result = "RegistryKeyPresent - NPSRadiusGroupConfigured '$($configuredProperty.NPSRadiusGroupConfigured)'" }
+    }
+    TestScript = {
+        $guardKey   = $using:guardKeyPath
+        $guardValue = 'NPSRadiusGroupConfigured'
+        if ([string]::IsNullOrWhiteSpace($guardKey))
+        {
+            throw "Guard registry key path is empty (ConfigData.AllNodes.GMNRegistryPath missing) - cannot evaluate '$guardValue'."
+        }
+
+        # Only existence of the guard value matters - its data is historical and ignored
+        $guard = Get-ItemProperty -LiteralPath $guardKey -Name $guardValue -ErrorAction SilentlyContinue -ErrorVariable guardError
+        if ($null -ne $guard)
+        {
+            Write-Verbose -Message "Guard value '$guardValue' exists under '$guardKey' - RadiusGroup configuration is skipped."
+            return $true
+        }
+
+        # Only 'key missing' (ObjectNotFound) and 'value missing' (InvalidArgument) prove the guard is absent;
+        # any other error (e.g. access denied) fails the resource instead of triggering the SetScript
+        if ($guardError.Count -gt 0 -and $guardError[0].CategoryInfo.Category.ToString() -notin @('ObjectNotFound', 'InvalidArgument'))
+        {
+            throw "Cannot read guard value '$guardValue' under '$guardKey': $($guardError[0].Exception.Message)"
+        }
+
+        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - checking the RadiusGroup via netsh."
+        if([string]::IsNullOrWhiteSpace($using:AllNodes.NPSSecondNodeIP)) { return $false }
+        $groupOutput = netsh nps show remoteserver remoteservergroup = "RadiusGroup" | Out-String
+        Write-Verbose "retrieved following values: $groupOutput" -Verbose
+        return [bool]($groupOutput -match [regex]::Escape($using:AllNodes.NPSSecondNodeIP))
+    }
+    SetScript = {
+        $partnerIp = $using:ConfigData.AllNodes.NPSSecondNodeIP
+        $secret = $using:ConfigData.AllNodes.NPSSharedSecret
+        if([string]::IsNullOrWhiteSpace($partnerIp)) { throw 'NPSSecondNodeIP missing in ConfigData' }
+        if([string]::IsNullOrWhiteSpace($secret)) { throw 'NPSSharedSecret missing in ConfigData' }
+        Write-Verbose "partnerIp: $partnerIp" -Verbose
+
+      $netshArgsdelete = @(
+            'nps',
+            'delete',
+            'remoteservergroup',
+            ('name=RadiusGroup')
+        )
+
+        $delete = & netsh $netshArgsdelete | Out-Null
+
+        $netshArgsadd = @(
+            'nps',
+            'add',
+            'remoteservergroup',
+            ('name=RadiusGroup')
+        )
+
+        $add = & netsh $netshArgsadd
+        if(($add -join ' ') -notmatch 'Ok') { throw ('RadiusGroup creation failed: ' + ($add -join ' '))}
+
+
+        $netshArgs = @(
+            'nps',
+            'add',
+            'remoteserver',
+            'remoteservergroup=RadiusGroup',
+            ('address=' + $partnerIp),
+            ('authsharedsecret=' + $secret),
+            ('acctsharedsecret=' + $secret),
+            'priority=1',
+            'weight=50',
+            'timeout=3',
+            'maxdropped=5',
+            'blackout=30'
+        )
+
+        $addResult = & netsh $netshArgs
+        if(($addResult -join ' ') -notmatch 'Ok') { throw ('RadiusGroup creation failed: ' + ($addResult -join ' '))}
+
+        $netshArgs2 = @(
+            'nps',
+            'show',
+            'remoteserver',
+            'remoteservergroup=RadiusGroup'
+        )
+
+        $controll = & netsh $netshArgs2
+        if(($controll -join ' ') -notmatch [regex]::Escape($partnerIp)) { throw ('Partner IP ' + $partnerIp + ' not found in RadiusGroup:' + ($controll -join ' '))}
+        Write-Verbose "RadiusGroup with Partner $($partnerIp) created."
+
+        # Stamp the guard value so the next TestScript pass skips the RadiusGroup rebuild
+        if (-not (Test-Path -LiteralPath $using:guardKeyPath))
+        {
+            New-Item -Path $using:guardKeyPath -Force | Out-Null
+        }
+        $date = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        Set-ItemProperty -LiteralPath $using:guardKeyPath -Name 'NPSRadiusGroupConfigured' -Value $date -Force -ErrorAction Stop
+    }
+    DependsOn = $Depends
+ }
+    $Depends += "[Script]RaduisServerGroup"
+
+Script ImportClients{
+    GetScript = {
+        if (-not (Test-Path -Path $using:guardKeyPath))
+        {
+            return @{ Result = 'RegistryKeyAbsent' }
+        }
+
+        $copiedOnProperty = Get-ItemProperty -Path $using:guardKeyPath -Name 'NPSClientsImported' -ErrorAction SilentlyContinue
+        if ($null -eq $copiedOnProperty)
+        {
+            return @{ Result = 'RegistryKeyPresent - NPSClientsImported value missing.' }
+        }
+
+        @{ Result = "RegistryKeyPresent - NPSClientsImported '$($copiedOnProperty.NPSClientsImported)'" }
+    }
+    TestScript = {
+        $guardKey   = $using:guardKeyPath
+        $guardValue = 'NPSClientsImported'
+        if ([string]::IsNullOrWhiteSpace($guardKey))
+        {
+            throw "Guard registry key path is empty (ConfigData.AllNodes.GMNRegistryPath missing) - cannot evaluate '$guardValue'."
+        }
+
+        # Only existence of the guard value matters - its data is historical and ignored
+        $guard = Get-ItemProperty -LiteralPath $guardKey -Name $guardValue -ErrorAction SilentlyContinue -ErrorVariable guardError
+        if ($null -ne $guard)
+        {
+            Write-Verbose -Message "Guard value '$guardValue' exists under '$guardKey' - RADIUS client import is skipped."
+            return $true
+        }
+
+        # Only 'key missing' (ObjectNotFound) and 'value missing' (InvalidArgument) prove the guard is absent;
+        # any other error (e.g. access denied) fails the resource instead of triggering the SetScript
+        if ($guardError.Count -gt 0 -and $guardError[0].CategoryInfo.Category.ToString() -notin @('ObjectNotFound', 'InvalidArgument'))
+        {
+            throw "Cannot read guard value '$guardValue' under '$guardKey': $($guardError[0].Exception.Message)"
+        }
+
+        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - RADIUS client import is required."
+        return $false
+    }
+    SetScript = {
+        $pathtoCSV = "D:\Resources\NPS\data.csv"
+        $regPath = $using:guardKeyPath
+        $csvImport = Import-Csv -Path $pathtoCSV -Delimiter ';' 
+        $actualClients = Get-NpsRadiusClient |Select-Object -ExpandProperty 'Name'
+        $csvRows = $csvImport
+        $current = @($actualClients) # what exists now
+        $desired = @($csvRows) # what the CSV says should exist
+        $comparison = Compare-Object -ReferenceObject $current -DifferenceObject @($desired.Name)
+        # Names that exist now but aren't in the CSV -> remove (a name is all you need here)
+        $namesToRemove = @($comparison | Where-Object SideIndicator -eq '<=' | Select-Object -ExpandProperty InputObject)
+
+        # Names in the CSV that don't exist yet -> add, rehydrated to the full row so you have the IP
+        $namesToAdd = @($comparison | Where-Object SideIndicator -eq '=>' | Select-Object -ExpandProperty InputObject)
+        $rowsToAdd = @($desired | Where-Object { $_.Name -in $namesToAdd })
+
+
+        foreach ( $item in $namesToRemove ){
+            Remove-NpsRadiusClient -Name $item -Verbose
+        }
+
+        foreach ( $item in $rowsToAdd ){
+            Write-Verbose "ClientName: $($item.Name)" -Verbose
+            Write-Verbose "Input: $($item.IP)" -Verbose
+            New-NpsRadiusClient -Name $item.Name -Address $item.IP -SharedSecret $using:ConfigData.AllNodes.NPSSharedSecret -Verbose
+        } 
+        #RegKey stores the hash of the ynced CSV - a changed CSV triggers a re-sync
+        if (-not (Test-Path -LiteralPath $regPath)) {
+            New-Item $regPath -Force | Out-Null
+        }
+        $date = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        Set-ItemProperty -LiteralPath $regPath -Name 'NPSClientsImported' -Value $date -Force -ErrorAction Stop
+        Write-Verbose "NPS clients synced, hsh stored in RegKey NPSClientsImported." -Verbose
+
+    }  
+   
+    DependsOn = $Depends
+}
+$Depends += "[Script]ImportClients"
+
+ Script 'AccountLog' {
+    GetScript = { 
+        if (-not (Test-Path -Path $using:guardKeyPath))
+        {
+            return @{ Result = 'RegistryKeyAbsent' }
+        }
+
+        $configuredProperty = Get-ItemProperty -Path $using:guardKeyPath -Name 'NPSAccountLogConfigured' -ErrorAction SilentlyContinue
+        if ($null -eq $configuredProperty)
+        {
+            return @{ Result = 'RegistryKeyPresent - NPSAccountLogConfigured value missing' }
+        }
+
+        @{ Result = "RegistryKeyPresent - NPSAccountLogConfigured '$($configuredProperty.NPSAccountLogConfigured)'" }
+     }
+    TestScript = {
+        $guardKey   = $using:guardKeyPath
+        $guardValue = 'NPSAccountLogConfigured'
+        if ([string]::IsNullOrWhiteSpace($guardKey))
+        {
+            throw "Guard registry key path is empty (ConfigData.AllNodes.GMNRegistryPath missing) - cannot evaluate '$guardValue'."
+        }
+
+        # Only existence of the guard value matters - its data is historical and ignored
+        $guard = Get-ItemProperty -LiteralPath $guardKey -Name $guardValue -ErrorAction SilentlyContinue -ErrorVariable guardError
+        if ($null -ne $guard)
+        {
+            Write-Verbose -Message "Guard value '$guardValue' exists under '$guardKey' - filelog configuration is skipped."
+            return $true
+        }
+
+        # Only 'key missing' (ObjectNotFound) and 'value missing' (InvalidArgument) prove the guard is absent;
+        # any other error (e.g. access denied) fails the resource instead of triggering the SetScript
+        if ($guardError.Count -gt 0 -and $guardError[0].CategoryInfo.Category.ToString() -notin @('ObjectNotFound', 'InvalidArgument'))
+        {
+            throw "Cannot read guard value '$guardValue' under '$guardKey': $($guardError[0].Exception.Message)"
+        }
+
+        Write-Verbose -Message "Guard value '$guardValue' not found under '$guardKey' - checking the NPS filelog directory via netsh."
+        $filelogOutput = netsh nps show filelog | Out-String
+        return [bool]($filelogOutput -match [regex]::Escape('D:\RADIUS_Log'))
+    }
+    SetScript = {
+        $setResult = netsh nps set filelog directory="D:\RADIUS_Log"
+        if (($setResult -join ' ') -notmatch 'Ok') {
+            throw "Filelog-path failed: $setResult"
+        }
+
+        # Stamp the guard value so the next TestScript pass skips the filelog configuration
+        if (-not (Test-Path -LiteralPath $using:guardKeyPath))
+        {
+            New-Item -Path $using:guardKeyPath -Force | Out-Null
+        }
+        $date = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        Set-ItemProperty -LiteralPath $using:guardKeyPath -Name 'NPSAccountLogConfigured' -Value $date -Force -ErrorAction Stop
+    }
+    DependsOn = $Depends
+ }
+
+Registry 'NPS_Installation_started' {
+	Ensure = "Present"
+	Key = "$($ConfigData.AllNodes.GMNRegistryPath)\$($ConfigData.AllNodes.CcService)" 
+	ValueType = "String"
+	ValueName = "NPS_Installation_started"
+    ValueData = "Executed"
+}
