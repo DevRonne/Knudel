@@ -1,3 +1,679 @@
-$h='pullserver.pkibw.ccis.deu'; $tcp = New-Object Net.Sockets.TcpClient($h,8080); $ssl = New-Object Net.Security.SslStream($tcp.GetStream(),$false,{$true})
-$ssl.AuthenticateAsClient($h, $null, [System.Security.Authentication.SslProtocols]::Tls12, $false)
-$c = [System.Security.Cryptography.X509Certificates.X509Certificate2]$ssl.RemoteCertificate; $c | Format-List Subject, Issuer, NotBefore, NotAfter, DnsNameList, Thumbprint
+[
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING"
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-Permissions,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"Groups": [
+			{
+				"Name": "ACC_${TierLevel}_${CcService}_Administrate",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_${CcService}_UAC_Operate",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},                                            
+           	{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeRestorePrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+           	{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+           	{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeTakeOwnershipPrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+           		{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeBackupPrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeChangeNotifyPrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeDebugPrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeAuditPrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeCreateTokenPrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeSecurityPrivilege",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_URA_${CcService}_SeInteractiveLogonRight",
+				"Scope": "domainlocal",
+				"Nestedgroupmember": []
+			},
+			{
+				"Name": "ACC_${TierLevel}_SQLAdmin_${CcService}_Administrate",
+				"Scope": "DomainLocal"
+			},
+			{
+				"Name": "ACC_${TierLevel}_ART-AD-R_${CcService}_Administrate",
+				"Scope": "DomainLocal"
+			},
+			{
+				"Name": "ACC_${TierLevel}_ART-AD-A_${CcService}_Administrate",
+				"Scope": "DomainLocal"
+			},
+			{
+				"Name": "ACC_${TierLevel}_ART-SP-R_${CcService}_Administrate",
+				"Scope": "DomainLocal"
+			},
+			{
+				"Name": "ACC_${TierLevel}_ART-SP-A_${CcService}_Administrate",
+				"Scope": "DomainLocal"
+			},
+			{
+				"Name": "ACC_${CcService}_SKB_ZGeoBw_Manage",
+				"Scope": "DomainLocal",
+				"Nestedgroupmember": [
+					"MR_SKB_ZGeoBw_Managers"
+				]
+			},
+			{
+				"Name": "ACC_${CcService}_SKB_ZGeoBw_Contribute",
+				"Scope": "DomainLocal",
+				"Nestedgroupmember": [
+					"OR_SKB_ZGeoBw_Users"
+				]
+			},
+			{
+				"Name": "ACC_${CcService}_SKB_ZGeoBw_Read",
+				"Scope": "DomainLocal",
+				"Nestedgroupmember": [
+					"OR_SKB_ZGeoBw_Readers"
+				]
+			},
+			{
+				"Name": "ACC_${CcService}_SKB_GeoInfoBer_Manage",
+				"Scope": "DomainLocal",
+				"Nestedgroupmember": [
+					"MR_SKB_ZGeoBw_Managers"
+				]
+			},
+			{
+				"Name": "ACC_${CcService}_SKB_GeoInfoBer_Contribute",
+				"Scope": "DomainLocal",
+				"Nestedgroupmember": [
+					"OR_SKB_ZGeoBw_Users"
+				]
+			},
+			{
+				"Name": "ACC_${CcService}_SKB_GeoInfoBer_Read",
+				"Scope": "DomainLocal",
+				"Nestedgroupmember": [
+					"OR_SKB_ZGeoBw_Readers"
+				]
+			},
+			{
+				"Name": "ACC_${CcService}_HOP_SVC_GeoInfo_Contribute",
+				"Scope": "DomainLocal",
+				"Nestedgroupmember": [
+					"MR_SKB_ZGeoBw_Managers"
+				]
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-Roles,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"Groups": []
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-Admins,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"GPOLink": [
+			"CERT-4.2-UP-User-DataProtectionAndTelemetry",
+			"CERT-4.2-UP-User-Registry"
+		],
+		"Users": [
+			{
+				"Name": "a${CcService}${TierLevel}SysAdmin",
+				"Groups": [
+					"ACC_${TierLevel}_${CcService}_Administrate"
+				]
+			},
+			{
+				"Name": "a${CcService}${TierLevel}Admin",
+				"Groups": [
+					"ACC_${TierLevel}_${CcService}_Administrate",
+					"ACC_${TierLevel}_SQLAdmin_${CcService}_Administrate"
+				]
+			},
+			{
+				"Name": "a${CcService}${TierLevel}instAdmin",
+				"Groups": [
+					"ACC_${TierLevel}_${CcService}_Administrate",
+					"ACC_0_CT_WebServer_Request_SCA_Use",
+					"ACC_${TierLevel}_SQL_SERVICES_BAC_Administrate",
+					"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeBackupPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeAuditPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeDebugPrivilege",
+					"ACC_${TierLevel}_SQLAdmin_${CcService}_Administrate"
+
+				]
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-ServiceAccounts,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"Users": [
+			{
+				"Name": "s${CcService}${TierLevel}UPS",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts",
+					"ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege",
+					"ACC_0_Domain_ReplicatingDirectoryChanges_ADS_Use"
+				],
+				"SPN": [
+					{
+						"Computer": "mysite",
+						"ServiceClass": "http"
+					}
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}SYNC",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts",
+					"ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight"
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}FARM",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts",
+					"ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeBackupPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeDebugPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeAuditPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeRestorePrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeTakeOwnershipPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege"
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}CRAWL",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts",
+					"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight"
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}POOL",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts",
+					"ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege"
+				],
+				"SPN": [
+					{
+						"Computer": "aktenhaltung",
+						"ServiceClass": "http"
+					},
+					{
+						"Computer": "arbeitsbereiche",
+						"ServiceClass": "http"
+					},
+					{
+						"Computer": "lokaleportale",
+						"ServiceClass": "http"
+					},
+					{
+						"Computer": "portal",
+						"ServiceClass": "http"
+					},
+					{
+						"Computer": "recordscenter",
+						"ServiceClass": "http"
+					},
+					{
+						"Computer": "vorgangsbearbeitung",
+						"ServiceClass": "http"
+					}
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}SEARCH",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts",
+					"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege"
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}SU",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts"
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}SUR",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts"
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}SVC",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts",
+					"ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege"
+				],
+				"CrossServiceReference": [
+					"SHPMailboxForMSX"
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}ART",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts",
+					"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight"
+				]
+			},
+			{
+				"Name": "s${CcService}${TierLevel}PASSPHRASE",
+				"Groups": [
+					"GL_ServiceAccounts",
+					"GL_PSO-TechnicalAccounts"
+				]
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-GMSA,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING"
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-Groups,ou=${TierLevel}TS0${TS_Nr}-GMSA,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"Groups": [
+			{
+				"Name": "ACC_m${CcService}${TierLevel}SQA_${TierLevel}_${CcService}_Administrate",
+				"Scope": "DomainLocal"
+			},
+			{
+				"Name": "ACC_m${CcService}${TierLevel}SQE_${TierLevel}_${CcService}_Administrate",
+				"Scope": "DomainLocal"
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-Accounts,ou=${TierLevel}TS0${TS_Nr}-GMSA,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"GMSA": [
+			{
+				"Name": "m${CcService}${TierLevel}SQA",
+				"Groups": [
+					"ACC_m${CcService}${TierLevel}SQA_${TierLevel}_${CcService}_Administrate",
+					"ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight"
+				]
+			},
+			{
+				"Name": "m${CcService}${TierLevel}SQE",
+				"Groups": [
+					"ACC_m${CcService}${TierLevel}SQE_${TierLevel}_${CcService}_Administrate",
+					"ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+					"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+					"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege"
+
+
+				],
+				"SPN": [
+					{
+						"Computer": "${BK:VM-SHP-DBX-0A}",
+						"ServiceClass": "MSSQLSvc",
+						"ServiceNamePort": "SHAREPOINT"
+					},
+					{
+						"Computer": "${BK:VM-SHP-DBX-0A}",
+						"ServiceClass": "MSSQLSvc",
+						"ServiceNamePort": "6210"
+					},
+					{
+						"Computer": "${BK:VM-SHP-DBX-0B}",
+						"ServiceClass": "MSSQLSvc",
+						"ServiceNamePort": "SHAREPOINT"
+					},
+					{
+						"Computer": "${BK:VM-SHP-DBX-0B}",
+						"ServiceClass": "MSSQLSvc",
+						"ServiceNamePort": "6210"
+					},
+					{
+						"Computer": "${BK:LIS-SHP-SHP-01}",
+						"ServiceClass": "MSSQLSvc",
+						"ServiceNamePort": "1433"
+					}
+				]
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-ServiceServers,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"GPO": [
+			{
+				"Name": "CP-${Systemschicht}-T${TierLevel}-${CcService}-AccessLocalAdministration-1.00",
+				"Security": "ACC_${TierLevel}_${CcService}_Administrate"
+			}
+		],
+		"GPOCustomLink": ["CP-IPF-T${TierLevel}-${CcService}-AccessLocalAdministration-1.00"]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-WindowsServer2022,ou=${TierLevel}TS0${TS_Nr}-ServiceServers,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"DomJoinACC": "a${CcService}${TierLevel}instAdmin"
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-${CcService}APXServers,ou=${TierLevel}TS0${TS_Nr}-WindowsServer2022,ou=${TierLevel}TS0${TS_Nr}-ServiceServers,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+"GPOLink": [
+				"CERT-4.2-CP-Role-MISC"
+	   ],
+"GPO": [
+			{
+				"Name": "CP-${Systemschicht}-T${TierLevel}-${CcService}-MISC-UserRightsAssignment-1.00",
+				"Security": ["ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeChangeNotifyPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeAuditPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeCreateTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDebugPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyNetworkLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeSecurityPrivilege"
+				]
+			}
+		],
+		"GPOCustomLink": [
+			"CP-${Systemschicht}-T${TierLevel}-${CcService}-MISC-UserRightsAssignment-1.00"
+		],
+		"Computers": [
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-${CcService}SPWServers,ou=${TierLevel}TS0${TS_Nr}-WindowsServer2022,ou=${TierLevel}TS0${TS_Nr}-ServiceServers,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+"GPOLink": [
+				"CERT-4.2-CP-Role-MISC"
+	   ],
+"GPO": [
+			{
+				"Name": "CP-${Systemschicht}-T${TierLevel}-${CcService}-MISC-UserRightsAssignment-1.00",
+				"Security": ["ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeChangeNotifyPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeAuditPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeCreateTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDebugPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyNetworkLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeSecurityPrivilege"
+				]
+			}
+		],
+		"GPOCustomLink": [
+			"CP-${Systemschicht}-T${TierLevel}-${CcService}-MISC-UserRightsAssignment-1.00"
+		],
+		"Computers": [
+			{
+				"Name": "${BK:VM-SHP-SPW-0A}",
+				"Groups": [
+					"ACC_mNOC1SHP_1_NOC_Administrate"
+				]
+			},
+			{
+				"Name": "${BK:VM-SHP-SPW-0B}",
+				"Groups": [
+					"ACC_mNOC1SHP_1_NOC_Administrate"
+				]
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-${CcService}MGTServers,ou=${TierLevel}TS0${TS_Nr}-WindowsServer2022,ou=${TierLevel}TS0${TS_Nr}-ServiceServers,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+"GPOLink": [
+				"CERT-4.2-CP-Role-MISC"
+	   ],
+"GPO": [
+			{
+				"Name": "CP-${Systemschicht}-T${TierLevel}-${CcService}-MISC-UserRightsAssignment-1.00",
+				"Security": ["ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeChangeNotifyPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeAuditPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeCreateTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDebugPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyNetworkLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeSecurityPrivilege"
+				]
+			}
+		],
+		"GPOCustomLink": [
+			"CP-${Systemschicht}-T${TierLevel}-${CcService}-MISC-UserRightsAssignment-1.00"
+		],
+		"Computers": [
+			{
+				"Name": "${BK:VM-SHP-MGT-0A}"
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-${CcService}WBXServers,ou=${TierLevel}TS0${TS_Nr}-WindowsServer2022,ou=${TierLevel}TS0${TS_Nr}-ServiceServers,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"GPOCustomLink": [
+			"CP-${Systemschicht}-T${TierLevel}-${CcService}-WEB-UserRightsAssignment-1.00",
+			"CERT-4.2-CP-EBS-Remotemanagement-T${TierLevel}-${CcService}-AllowCredSSPAuth-Delta-1.00",
+			"CP-${Systemschicht}-T${TierLevel}-${CcService}-CredDelegation-1.00"
+		],
+"GPOLink": ["CERT-4.2-CP-Role-WEB"],
+"GPO": [
+			{
+				"Name": "CP-${Systemschicht}-T${TierLevel}-${CcService}-WEB-UserRightsAssignment-1.00",
+				"Security": ["ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeChangeNotifyPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeCreateTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDebugPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyNetworkLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeSecurityPrivilege"
+				]
+			}
+		],
+		"Computers": [
+					{
+				"Name": "${BK:VM-SHP-APX-0A}",
+				"Groups": [
+					"ACC_mNOC1SHP_1_NOC_Administrate"
+				]
+			},
+			{
+				"Name": "${BK:VM-SHP-APX-0B}",
+				"Groups": [
+					"ACC_mNOC1SHP_1_NOC_Administrate"
+				]
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-${CcService}DBXServers,ou=${TierLevel}TS0${TS_Nr}-WindowsServer2022,ou=${TierLevel}TS0${TS_Nr}-ServiceServers,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"GPOCustomLink": ["CP-${Systemschicht}-T${TierLevel}-${CcService}-SQL-UserRightsAssignment-1.00"],
+"GPOLink": [
+				"CERT-4.2-CP-Role-SQL"
+	],
+"GPO": [
+			{
+				"Name": "CP-${Systemschicht}-T${TierLevel}-${CcService}-SQL-UserRightsAssignment-1.00",
+				"Security": ["ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeAuditPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDebugPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyNetworkLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeSecurityPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeBackupPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeTakeOwnershipPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeRestorePrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeIncreaseWorkingSetPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeLockMemoryPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeIncreaseBasePriorityPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege"
+				]
+			}
+		],
+		"Computers": [
+			{
+				"Name": "${BK:VM-SHP-DBX-0A}",
+				"Groups": [
+					"ACC_m${CcService}${TierLevel}SQA_${TierLevel}_${CcService}_Administrate",
+					"ACC_m${CcService}${TierLevel}SQE_${TierLevel}_${CcService}_Administrate",
+					"ACC_mBAC${TierLevel}SHP_${TierLevel}_BAC_Administrate",
+					"ACC_mNOC1SHP_1_NOC_Administrate"
+				]
+			},
+			{
+				"Name": "${BK:VM-SHP-DBX-0B}",
+				"Groups": [
+					"ACC_m${CcService}${TierLevel}SQA_${TierLevel}_${CcService}_Administrate",
+					"ACC_m${CcService}${TierLevel}SQE_${TierLevel}_${CcService}_Administrate",
+					"ACC_mBAC${TierLevel}SHP_${TierLevel}_BAC_Administrate",
+					"ACC_mNOC1SHP_1_NOC_Administrate"
+				]
+			},
+			{
+				"Name": "${BK:CLU-SHP-SQL-01}",
+				"Groups": [
+					"ACC_${TierLevel}_WitnessShare_SQL_Administrate"
+				],
+				"disabled": "true",
+				"FullControl": [
+					"a${CcService}${TierLevel}instAdmin"
+				]
+			},
+			{
+				"Name": "SQLAGXV005",
+				"Groups": [],
+				"FullControl": [
+					"${BK:CLU-SHP-SQL-01}$"
+				]
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-${CcService}OOOServers,ou=${TierLevel}TS0${TS_Nr}-WindowsServer2022,ou=${TierLevel}TS0${TS_Nr}-ServiceServers,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"GPOCustomLink": ["CP-${Systemschicht}-T${TierLevel}-${CcService}-WEB-UserRightsAssignment-1.00"],
+"GPOLink": [
+				"CERT-4.2-CP-Role-WEB"
+	   ],
+"GPO": [
+			{
+				"Name": "CP-${Systemschicht}-T${TierLevel}-${CcService}-WEB-UserRightsAssignment-1.00",
+				"Security": ["ACC_${TierLevel}_URA_${CcService}_SeServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeImpersonatePrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeAssignPrimaryTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeIncreaseQuotaPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeChangeNotifyPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeCreateTokenPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDebugPrivilege",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyBatchLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyNetworkLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeDenyServiceLogonRight",
+				"ACC_${TierLevel}_URA_${CcService}_SeSecurityPrivilege"
+				]
+			}
+		],
+		"Computers": [
+			{
+			"Name": "${BK:VM-SHP-OOS-0A}"
+			}
+		]
+	},
+	 {
+		"OUPath": "ou=${TierLevel}TS0${TS_Nr}-RHEL,ou=${TierLevel}TS0${TS_Nr}-ServiceServers,ou=${TierLevel}TS0${TS_Nr}-${TS_Name},ou=${TierLevel},ou=TIERING",
+		"DomJoinACC": "sSWD${TierLevel}LxJoin"
+	}
+]
