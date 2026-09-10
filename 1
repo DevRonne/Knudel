@@ -1,26 +1,8 @@
-Impersonate a client after authentication
+$UraBatchLogonGroup          = "ACC_$($ConfigData.AllNodes.Relation_TierLevel)_URA_$($ConfigData.AllNodes.CcService)_SeBatchLogonRight"
+$UraBatchLogonGroupPrincipal = "$($rz)\$($UraBatchLogonGroup)"
 
-ACC_1_URA_SHP_SeImpersonatePrivilege
-NT AUTHORITY\SERVICE
-NT AUTHORITY\LOCAL SERVICE
-NT AUTHORITY\NETWORK SERVICE
-BUILTIN\Administrators
-BUILTIN\IIS_IUSRS
-
-Replace a process level token
-
-ACC_1_URA_SHP_SeAssignPrimaryTokenPrivilege
-NT AUTHORITY\LOCAL SERVICE
-NT AUTHORITY\NETWORK SERVICE
-
-Adjust memory quotas for a process
-
-ACC_1_URA_SHP_SeIncreaseQuotaPrivilege
-BUILTIN\Administrators
-NT AUTHORITY\LOCAL SERVICE
-NT AUTHORITY\NETWORK SERVICE
-
-Log on as a batch job (ist schon drin, bitte ergänzen)
-
-BUILTIN\Administrators
-BUILTIN\IIS_IUSRS
+cUserRight 'GrantBatchLogonRightUraGroup' {
+    Ensure    = 'Present'
+    Constant  = 'SeBatchLogonRight'
+    Principal = $UraBatchLogonGroupPrincipal
+}
