@@ -21,34 +21,15 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'NpsSync.psm1') -Force
 
 $builtinAdministrators = 'S-1-5-32-544'
-$localSystem = 'S-1-5-18'
 $taskPath = '\GMN\'
 
 function Register-SyncEventSource {
     if (-not [System.Diagnostics.EventLog]::SourceExists('NpsSync')) {
         New-EventLog -LogName Application -Source 'NpsSync'
     }
-}
-
-function Protect-WorkFolder {
-    param([Parameter(Mandatory)][string]$Path)
-
-    if (-not (Test-Path -LiteralPath $Path)) {
-        New-Item -ItemType Directory -Path $Path -Force | Out-Null
-    }
-    $acl = New-Object System.Security.AccessControl.DirectorySecurity
-    $acl.SetAccessRuleProtection($true, $false)
-    # SIDs rather than names: group names differ between OS languages.
-    foreach ($sid in @($builtinAdministrators, $localSystem)) {
-        $identity = (New-Object System.Security.Principal.SecurityIdentifier($sid)).Translate(
-            [System.Security.Principal.NTAccount])
-        $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-            $identity, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-        $acl.AddAccessRule($rule)
-    }
-    Set-Acl -LiteralPath $Path -AclObject $acl
 }
 
 function Register-SyncTask {
@@ -102,7 +83,7 @@ if ($config.Alias -like 'CHANGE-ME*') {
 
 $syncScript = Join-Path $PSScriptRoot 'Sync-NpsConfig.ps1'
 Register-SyncEventSource
-Protect-WorkFolder -Path $config.WorkFolder
+Protect-NpsSyncFolder -Path $config.WorkFolder
 Register-SyncTask -ScriptPath $syncScript
 Register-NoticeTask -ScriptPath $syncScript
 

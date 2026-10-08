@@ -17,12 +17,31 @@ $script:Events = @{
 
 $script:ServerAuthOid = '1.3.6.1.5.5.7.3.1'
 
+$script:BackupPrefix = 'before-import-'
+$script:BackupExtension = '.npsbak'
+
+Add-Type -AssemblyName System.Security
+
 #region Configuration and logging
 
 function Get-NpsSyncConfig {
     param([Parameter(Mandatory)][string]$Path)
 
     $config = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+
+    # A misspelled key would otherwise only surface on the partner as an empty parameter.
+    $missing = @('Alias', 'WorkFolder', 'RegistryPath', 'BackupsToKeep' | Where-Object {
+        -not ($config.PSObject.Properties.Name -contains $_) -or [string]::IsNullOrWhiteSpace([string]$config.$_)
+    })
+    if (@($config.Nodes).Count -eq 0) { $missing += 'Nodes' }
+    foreach ($node in @($config.Nodes)) {
+        $missing += @('Name', 'Ip' | Where-Object {
+            -not ($node.PSObject.Properties.Name -contains $_) -or [string]::IsNullOrWhiteSpace([string]$node.$_)
+        } | ForEach-Object { "Nodes[].$_" })
+    }
+    if ($missing.Count -gt 0) {
+        throw "nps-sync.json ($Path) is missing: $(($missing | Select-Object -Unique) -join ', ')."
+    }
 
     # DSC only writes Name and Ip; both nodes live in the same AD domain.
     $domain = (Get-CimInstance -ClassName Win32_ComputerSystem).Domain
@@ -62,6 +81,8 @@ function Write-NpsSyncEvent {
         EventId   = $definition.Id
         EntryType = $definition.Type
         Message   = $Message
+        # Write-EventLog fails non-terminating when the source is missing; Stop lets the catch see it.
+        ErrorAction = 'Stop'
     }
     # Logging must never be the reason a sync run fails (e.g. source not registered yet).
     try {
@@ -349,6 +370,83 @@ function Get-MirrorPlan {
 
 #endregion
 
+#region Backups
+
+function Protect-NpsSyncFolder {
+    # Exports and backups contain the RADIUS shared secrets: Administrators and SYSTEM only.
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        New-Item -ItemType Directory -Path $Path -Force | Out-Null
+    }
+    $acl = New-Object System.Security.AccessControl.DirectorySecurity
+    $acl.SetAccessRuleProtection($true, $false)
+    # SIDs rather than names: group names differ between OS languages.
+    foreach ($sid in @('S-1-5-32-544', 'S-1-5-18')) {
+        $identity = (New-Object System.Security.Principal.SecurityIdentifier($sid)).Translate(
+            [System.Security.Principal.NTAccount])
+        $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            $identity, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+        $acl.AddAccessRule($rule)
+    }
+    Set-Acl -LiteralPath $Path -AclObject $acl
+}
+
+function Protect-NpsSyncBackupFile {
+    # Machine-bound DPAPI: readable on this node only, so a copied backup does not leak the secrets.
+    param([Parameter(Mandatory)][string]$PlainPath, [Parameter(Mandatory)][string]$EncryptedPath)
+
+    $bytes = [System.IO.File]::ReadAllBytes($PlainPath)
+    $protected = [System.Security.Cryptography.ProtectedData]::Protect($bytes, $null,
+        [System.Security.Cryptography.DataProtectionScope]::LocalMachine)
+    [System.IO.File]::WriteAllBytes($EncryptedPath, $protected)
+    Remove-Item -LiteralPath $PlainPath -Force
+}
+
+function Save-NpsSyncBackup {
+    param([Parameter(Mandatory)][string]$Folder, [Parameter(Mandatory)][string]$Stamp)
+
+    # Plain backups from versions before encryption are encrypted on the way.
+    foreach ($plain in @(Get-ChildItem -LiteralPath $Folder -Filter "$script:BackupPrefix*.xml")) {
+        $target = [System.IO.Path]::ChangeExtension($plain.FullName, $script:BackupExtension)
+        Protect-NpsSyncBackupFile -PlainPath $plain.FullName -EncryptedPath $target
+    }
+
+    $name = $script:BackupPrefix + $Stamp + $script:BackupExtension
+    $plainPath = Join-Path $Folder ($script:BackupPrefix + $Stamp + '.xml')
+    try {
+        Invoke-NpsExport -Path $plainPath
+        Protect-NpsSyncBackupFile -PlainPath $plainPath -EncryptedPath (Join-Path $Folder $name)
+    } finally {
+        if (Test-Path -LiteralPath $plainPath) { Remove-Item -LiteralPath $plainPath -Force }
+    }
+    return $name
+}
+
+function Restore-NpsSyncBackup {
+    <#
+    .SYNOPSIS
+        Imports a backup made before a sync. Run on the node that holds the backup.
+    .EXAMPLE
+        Import-Module .\NpsSync.psm1; Restore-NpsSyncBackup -Path .\Work\Backup\before-import-20261007-101500.npsbak
+    #>
+    param([Parameter(Mandatory)][string]$Path)
+
+    $backupPath = (Resolve-Path -LiteralPath $Path).ProviderPath
+    $plainPath = Join-Path (Split-Path -Parent $backupPath) 'restore.xml'
+    try {
+        $bytes = [System.Security.Cryptography.ProtectedData]::Unprotect(
+            [System.IO.File]::ReadAllBytes($backupPath), $null,
+            [System.Security.Cryptography.DataProtectionScope]::LocalMachine)
+        [System.IO.File]::WriteAllBytes($plainPath, $bytes)
+        Import-NpsConfiguration -Path $plainPath
+    } finally {
+        if (Test-Path -LiteralPath $plainPath) { Remove-Item -LiteralPath $plainPath -Force }
+    }
+}
+
+#endregion
+
 #region Partner side (called through Invoke-Command)
 
 function Get-NpsPartnerSnapshot {
@@ -381,13 +479,10 @@ function Import-NpsConfigXml {
     )
 
     $backupFolder = Join-Path $WorkFolder 'Backup'
-    if (-not (Test-Path -LiteralPath $backupFolder)) {
-        New-Item -ItemType Directory -Path $backupFolder -Force | Out-Null
-    }
+    Protect-NpsSyncFolder -Path $backupFolder
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $backupName = "before-import-$stamp.xml"
-    Invoke-NpsExport -Path (Join-Path $backupFolder $backupName)
-    Get-ChildItem -LiteralPath $backupFolder -Filter 'before-import-*.xml' |
+    $backupName = Save-NpsSyncBackup -Folder $backupFolder -Stamp $stamp
+    Get-ChildItem -LiteralPath $backupFolder -Filter "$script:BackupPrefix*" |
         Sort-Object Name -Descending |
         Select-Object -Skip $BackupsToKeep |
         Remove-Item -Force
@@ -489,7 +584,7 @@ function Invoke-NpsPrimarySync {
 
     $expectedHash = Get-XmlHash -XmlText (ConvertTo-NormalizedXml -XmlText $forPartner.Xml)
     $result = Invoke-Command -ComputerName $partner.Fqdn -ArgumentList $ModulePath, $forPartner.Xml,
-        $Config.WorkFolder, $Config.RegistryPath, [int]$Config.BackupsToKeep -ScriptBlock {
+        $Config.WorkFolder, $Config.RegistryPath, ([int]$Config.BackupsToKeep) -ScriptBlock {
         param($ModulePath, $XmlText, $WorkFolder, $RegistryPath, $BackupsToKeep)
         Import-Module $ModulePath -Force
         $import = @{
@@ -526,4 +621,5 @@ function Show-NpsSecondaryNotice {
 Export-ModuleMember -Function Get-NpsSyncConfig, Get-NpsNodePair, Resolve-NpsRole, Write-NpsSyncEvent,
     Stop-NpsSync, Set-NpsSyncState, Export-NpsConfigXml, ConvertTo-NormalizedXml, Get-XmlHash,
     Get-EapFieldCount, New-MirrorPair, ConvertTo-MirroredXml, Get-MirrorPlan, Get-NpsPartnerSnapshot,
-    Import-NpsConfigXml, Invoke-NpsSecondaryCheck, Invoke-NpsPrimarySync, Show-NpsSecondaryNotice
+    Import-NpsConfigXml, Invoke-NpsSecondaryCheck, Invoke-NpsPrimarySync, Show-NpsSecondaryNotice,
+    Protect-NpsSyncFolder, Save-NpsSyncBackup, Restore-NpsSyncBackup
